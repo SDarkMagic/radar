@@ -59,14 +59,18 @@ export class PlacementMap {
 
   private buildGenGroup(obj: PlacementObj): void {
     const doBuild = (obj: PlacementObj, id: number) => {
-      if (obj.genGroupId != -1)
-        return;
-      obj.genGroupId = id;
-      for (const link of obj.links)
-        doBuild(link.otherObj, id);
-      for (const link of obj.linksToSelf)
-        doBuild(link.otherObj, id);
-    };
+      try{
+        if (obj.genGroupId != -1)
+          return;
+        obj.genGroupId = id;
+        for (const link of obj.links)
+          doBuild(link.otherObj, id);
+        for (const link of obj.linksToSelf)
+          doBuild(link.otherObj, id);
+      } catch (err) {
+        console.log(id, err)
+      }
+    }
 
     doBuild(obj, PlacementObj.genGroupCounter++);
   }
@@ -90,9 +94,13 @@ export class PlacementMap {
         continue;
 
       for (const link of links) {
-        const destObj = (this.objs.get(link.DestUnitHashId))!;
-        obj.links.push(new PlacementLink(destObj, link, link.DefinitionName));
-        destObj.linksToSelf.push(new PlacementLink(obj, link, link.DefinitionName));
+        try {
+          const destObj = (this.objs.get(link.DestUnitHashId))!;
+          obj.links.push(new PlacementLink(destObj, link, link.DefinitionName));
+          destObj.linksToSelf.push(new PlacementLink(obj, link, link.DefinitionName));
+        } catch(err) {
+          console.log(err, link)
+        }
       }
     }
     for (const obj of this.data.Rails) {

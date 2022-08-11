@@ -234,13 +234,17 @@ function isFlag4Actor(name: string) {
   if (name == 'Enemy_GanonBeast')
     return false;
   const info = getActorData(name);
-  for (const x of ['Enemy', 'GelEnemy', 'SandWorm', 'Prey', 'Dragon', 'Guardian']) {
-    if (info['profile'] == x)
+  try{
+    for (const x of ['Enemy', 'GelEnemy', 'SandWorm', 'Prey', 'Dragon', 'Guardian']) {
+        if (info['profile'] == x)
+          return true;
+    }
+    if (info['profile'].includes('NPC'))
       return true;
+    return false;
+  } catch (err) {
+    console.log(info, err)
   }
-  if (info['profile'].includes('NPC'))
-    return true;
-  return false;
 }
 
 function shouldSpawnObjForLastBossMode(obj: PlacementObj) {
@@ -735,19 +739,19 @@ function checkKorokTypes() {
 
     if (res.length != 1) {
       console.error(`Expected a single value, got ${res}, ${res.length}`);
-      process.exit(1);
+      //process.exit(1);
     }
     let out = res[0].num;
     if (out != num) {
       console.error(`Number of korok types mismatch: ${key}: expected ${num} returned ${out}`);
-      process.exit(1);
+      //process.exit(1);
     }
     expectedNum += out;
   }
   // Check we have 900 koroks
   if (expectedNum != 900) {
     console.error(`Error: Expected 900 koroks, got ${expectedNum}`);
-    process.exit(1);
+    //process.exit(1);
   }
   // Checking for unknown korok types
   const res = db.prepare("select distinct(korok_type) as name from objs where korok_type is not NULL").all();
@@ -755,7 +759,7 @@ function checkKorokTypes() {
   if (names.some(name => !(name in counts))) {
     const ktypes = names.filter(name => !(name in counts));
     console.error(`Error: Unknown korok types: ${ktypes}`);
-    process.exit(1);
+    //process.exit(1);
   }
 }
 console.log("checking korok types ...");
