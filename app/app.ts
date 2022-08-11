@@ -10,12 +10,11 @@ const db = sqlite3(path.join(util.APP_ROOT, 'map.db'), {
   // @ts-ignore
   // verbose: console.log,
 });
-const app = express();
+const router = express.Router()
+router.use(cors());
+router.use(responseTime());
 
-app.use(cors());
-app.use(responseTime());
-
-app.use(express.static(path.join(util.APP_ROOT, 'static')));
+router.use(express.static(path.join(util.APP_ROOT, 'static')));
 
 function getQueryParamStr(req: express.Request, name: string) {
   const param = req.query[name];
@@ -44,14 +43,13 @@ function parseResult(result: any): { [key: string]: any } {
   result.pos = result.data.Translate.map((v: number) => Math.round(v * 100) / 100);
   result.korok_id = result.korok_id || undefined;
   result.korok_type = result.korok_type || undefined;
-  result.location = result.location || undefined;
   return result;
 }
 
-const FIELDS = 'objid, map_type, map_name, map_static, hash_id, unit_config_name as name, `drop`, equip, data, messageid, scale, sharp_weapon_judge_type, hard_mode, disable_rankup_for_hard_mode, spawns_with_lotm, field_area, korok_id, korok_type, one_hit_mode, location';
+const FIELDS = 'objid, map_type, map_name, map_static, hash_id, unit_config_name as name, `drop`, equip, data, messageid, scale, sharp_weapon_judge_type, hard_mode, disable_rankup_for_hard_mode, spawns_with_lotm, field_area, korok_id, korok_type, one_hit_mode';
 
 // Returns object details for an object.
-app.get('/obj/:objid', (req, res) => {
+router.route('/obj/:objid').get((req, res) => {
   const stmt = db.prepare(`SELECT ${FIELDS} FROM objs
     WHERE objid = @objid LIMIT 1`);
   const result = parseResult(stmt.get({
@@ -63,7 +61,7 @@ app.get('/obj/:objid', (req, res) => {
 });
 
 // Returns object details for an object.
-app.get('/obj/:map_type/:map_name/:hash_id', (req, res) => {
+router.route('/obj/:map_type/:map_name/:hash_id').get((req, res) => {
   const stmt = db.prepare(`SELECT ${FIELDS} FROM objs
     WHERE map_type = @map_type
       AND map_name = @map_name
@@ -79,7 +77,7 @@ app.get('/obj/:map_type/:map_name/:hash_id', (req, res) => {
 });
 
 // Returns the placement generation group for an object.
-app.get('/obj/:map_type/:map_name/:hash_id/gen_group', (req, res) => {
+router.route('/obj/:map_type/:map_name/:hash_id/gen_group').get((req, res) => {
   const result = db.prepare(`SELECT ${FIELDS} FROM objs
     WHERE gen_group =
        (SELECT gen_group FROM objs
@@ -133,8 +131,8 @@ function handleReqObjs(req: express.Request, res: express.Response) {
   }).map(parseResult).map(getData));
 }
 
-app.get('/objs/:map_type', handleReqObjs);
-app.get('/objs/:map_type/:map_name', handleReqObjs);
+router.route('/objs/:map_type').get(handleReqObjs);
+router.route('/objs/:map_type/:map_name').get(handleReqObjs);
 
 // Returns object IDs for all matching objects.
 function handleReqObjids(req: express.Request, res: express.Response) {
@@ -160,8 +158,8 @@ function handleReqObjids(req: express.Request, res: express.Response) {
   }).map(x => x.objid));
 }
 
-app.get('/objids/:map_type', handleReqObjids);
-app.get('/objids/:map_type/:map_name', handleReqObjids);
+router.route('/objids/:map_type').get(handleReqObjids);
+router.route('/objids/:map_type/:map_name').get(handleReqObjids);
 
 function handleReqDropTable(req: express.Request, res: express.Response) {
   const actorName: string | undefined = req.params.actor_name; // Matches unit_config_name in table objs
@@ -186,36 +184,7 @@ function handleReqDropTable(req: express.Request, res: express.Response) {
   res.json(rows);
 }
 
-function handleReqRailsTable(req: express.Request, res: express.Response) {
+router.route('/drop/:actor_name/:table_name').get(handleReqDropTable);
+router.route('/drop/:actor_name').get(handleReqDropTable);
 
-  const DRAGON_ICE_HASHID = [0xe61a0932, 0x86b9a466];
-  const DRAGON_FIRE_HASHID = [0x54d56291, 0xfc79f706];
-  const DRAGON_ELECTRIC_HASHID = [0x4fb21727, 0xc119deb6];
-
-  const hashId: number = parseInt(req.params.hash_id, 0); // From objs LinksToRail -> DestUnitHashId
-
-  if (DRAGON_ICE_HASHID.includes(hashId)) {
-    const stmt = db.prepare(`select data from rails where data like '%Dragon_Ice_MainRoute%'`);
-    return res.json(stmt.all({}).map((row: any) => JSON.parse(row.data)));
-  }
-  if (DRAGON_FIRE_HASHID.includes(hashId)) {
-    const stmt = db.prepare(`select data from rails where data like '%Dragon_Fire_MainRoute%'`);
-    return res.json(stmt.all({}).map((row: any) => JSON.parse(row.data)));
-  }
-  if (DRAGON_ELECTRIC_HASHID.includes(hashId)) {
-    const stmt = db.prepare(`select data from rails where data like '%Dragon_Electric_%'`);
-    return res.json(stmt.all({}).map((row: any) => JSON.parse(row.data)));
-  }
-  const stmt = db.prepare(`select data from rails
-      join (
-          select json_extract(value,'$.DestUnitHashId') as rail_id from objs, json_each(objs.data, '$.LinksToRail') where hash_id = ?
-      ) as t on t.rail_id = rails.hash_id`)
-  let rows = stmt.all(hashId);
-  res.json(rows.map((row: any) => JSON.parse(row.data)));
-}
-
-app.get('/drop/:actor_name/:table_name', handleReqDropTable);
-app.get('/drop/:actor_name', handleReqDropTable);
-app.get('/rail/:hash_id', handleReqRailsTable);
-
-app.listen(3007);
+module.exports = router
