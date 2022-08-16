@@ -11,7 +11,7 @@ const db = sqlite3(path.join(util.APP_ROOT, 'map.db'), {
   // verbose: console.log,
 });
 const router = express.Router()
-router.use(cors());
+router.use(cors({origin: [cors({origin: /objmap\.relicsofthepast\.dev$/})]}));
 router.use(responseTime());
 
 router.use(express.static(path.join(util.APP_ROOT, 'static')));
